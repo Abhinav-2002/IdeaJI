@@ -1,0 +1,83 @@
+"use client";
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layout/footer';
+import { IdeaForm } from '@/components/ideas/idea-form';
+import { useAuth } from '@/contexts/AuthContext';
+
+export default function SubmitIdeaPage() {
+  const router = useRouter();
+  const { session, status } = useAuth();
+
+  // Check if user is authenticated
+  if (status === "loading") {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 py-12">
+          <div className="container max-w-3xl">
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (status === "unauthenticated") {
+    if (typeof window !== "undefined") {
+      router.push("/auth/login?callbackUrl=/ideas/submit");
+    }
+    
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 py-12">
+          <div className="container max-w-3xl">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
+              <p className="mb-4">You need to be logged in to submit an idea.</p>
+              <p>Redirecting to login page...</p>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-1 py-12">
+        <div className="container max-w-3xl">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Submit Your Idea</h1>
+            <p className="text-muted-foreground">
+              Share your startup or app idea with our community and get valuable feedback
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              By submitting an idea, you agree to our{' '}
+              <Link href="/terms" className="text-primary hover:underline">
+                terms of service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-primary hover:underline">
+                privacy policy
+              </Link>
+            </p>
+          </div>
+          
+          <IdeaForm />
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}

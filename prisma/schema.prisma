@@ -1,0 +1,340 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  points        Int       @default(0)
+  bio           String?
+  role          Role      @default(USER)
+  
+  // Activity tracking
+  ideasCount    Int       @default(0)
+  feedbackCount Int       @default(0)
+  lastActive    DateTime  @default(now())
+
+  // Relationships
+  ideas         Idea[]    @relation("UserIdeas")
+  feedbacks     Feedback[] @relation("UserFeedbacks")
+  accounts      Account[]
+  sessions      Session[]
+  badges        Badge[]   @relation("UserBadges")
+  redemptions   Redemption[] @relation("UserRedemptions")
+  sentMessages  Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  notifications Notification[] @relation("UserNotifications")
+  sentInvites   ChatInvite[] @relation("InviteSender")
+  receivedInvites ChatInvite[] @relation("InviteReceiver")
+  chatParticipations ChatParticipant[] @relation("UserChatParticipations")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Idea {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  problem     String
+  solution    String
+  targetAudience String?
+  marketSize  String?
+  competition String?
+  businessModel String?
+  status      IdeaStatus @default(DRAFT)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String
+  isAnonymous Boolean   @default(false)
+  mediaType   MediaType @default(TEXT)
+  mediaUrls   String?   // Comma-separated URLs for images/videos
+  audioUrl    String?   // URL for audio recording
+  videoUrl    String?   // URL for video recording
+  views       Int       @default(0)
+  upvotes     Int       @default(0)
+  downvotes   Int       @default(0)
+  
+  // Relationships
+  user        User      @relation("UserIdeas", fields: [userId], references: [id], onDelete: Cascade)
+  tags        Tag[]     @relation("IdeaTags")
+  feedbacks   Feedback[]
+  aiSummary   AISummary?
+  chats       Chat[]    @relation("IdeaChats")
+  reports     Report[]  @relation("IdeaReports")
+}
+
+model Tag {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  ideas       Idea[]    @relation("IdeaTags")
+}
+
+model Feedback {
+  id          String    @id @default(cuid())
+  content     String?   // Optional detailed feedback
+  rating      Int?      // 1-5 rating (optional)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  ideaId      String
+  userId      String
+  isHelpful   Boolean   @default(false)
+  tags        String?   // Comma-separated feedback tags (e.g., "innovative,feasible")
+  action      String    @default("detailed") // 'like', 'pass', or 'detailed'
+  comment     String?   // Optional comment for detailed feedback
+
+  idea        Idea      @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user        User      @relation("UserFeedbacks", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AISummary {
+  id          String    @id @default(cuid())
+  content     String
+  strengths   String
+  weaknesses  String
+  opportunities String
+  threats     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  ideaId      String    @unique
+
+  idea        Idea      @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+}
+
+model Reward {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  pointsCost  Int
+  imageUrl    String?
+  isAvailable Boolean   @default(true)
+  type        RewardType @default(OTHER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  redemptions Redemption[]
+}
+
+model Redemption {
+  id          String    @id @default(cuid())
+  userId      String
+  rewardId    String
+  pointsCost  Int       // Store the cost at time of redemption
+  status      RedemptionStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  user        User      @relation("UserRedemptions", fields: [userId], references: [id], onDelete: Cascade)
+  reward      Reward    @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+}
+
+model Badge {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String
+  imageUrl    String
+  criteria    String    // Description of how to earn this badge
+  
+  // Relationships
+  users       User[]    @relation("UserBadges")
+}
+
+model Chat {
+  id          String    @id @default(cuid())
+  name        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  ideaId      String?   // Optional - chat can be related to an idea
+  
+  // Relationships
+  idea        Idea?     @relation("IdeaChats", fields: [ideaId], references: [id], onDelete: SetNull)
+  messages    Message[]
+  participants ChatParticipant[]
+}
+
+model ChatParticipant {
+  id          String    @id @default(cuid())
+  userId      String
+  chatId      String
+  joinedAt    DateTime  @default(now())
+  lastRead    DateTime  @default(now())
+  
+  // Relationships
+  user        User      @relation("UserChatParticipations", fields: [userId], references: [id], onDelete: Cascade)
+  chat        Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, chatId])
+}
+
+model ChatInvite {
+  id          String    @id @default(cuid())
+  senderId    String
+  receiverId  String
+  chatId      String
+  status      InviteStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  sender      User      @relation("InviteSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User      @relation("InviteReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@unique([senderId, receiverId, chatId])
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  senderId    String
+  receiverId  String?   // For direct messages
+  chatId      String?   // For group chats
+  createdAt   DateTime  @default(now())
+  isRead      Boolean   @default(false)
+  
+  // Relationships
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User?     @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: SetNull)
+  chat        Chat?     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  content     String
+  isRead      Boolean   @default(false)
+  relatedId   String?   // ID of related entity (idea, feedback, etc.)
+  createdAt   DateTime  @default(now())
+  
+  // Relationships
+  user        User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  reporterId  String
+  ideaId      String
+  reason      String
+  details     String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  idea        Idea      @relation("IdeaReports", fields: [ideaId], references: [id], onDelete: Cascade)
+}
+
+model Analytics {
+  id          String    @id @default(cuid())
+  date        DateTime  @default(now())
+  activeUsers Int       @default(0)
+  newUsers    Int       @default(0)
+  newIdeas    Int       @default(0)
+  newFeedbacks Int      @default(0)
+  totalViews  Int       @default(0)
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum IdeaStatus {
+  DRAFT
+  PUBLISHED
+  FEATURED
+  ARCHIVED
+}
+
+enum MediaType {
+  TEXT
+  AUDIO
+  VIDEO
+  MIXED
+}
+
+enum RewardType {
+  PITCH_DECK
+  MENTORSHIP
+  DOMAIN_DISCOUNT
+  TOOL_DISCOUNT
+  PRIORITY_ACCESS
+  OTHER
+}
+
+enum RedemptionStatus {
+  PENDING
+  APPROVED
+  FULFILLED
+  REJECTED
+}
+
+enum NotificationType {
+  FEEDBACK
+  LIKE
+  REWARD
+  MESSAGE
+  SYSTEM
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}

@@ -1,0 +1,593 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layout/footer';
+import { IdeaCard } from '@/components/ideas/idea-card';
+import { SwipeableIdeaCard } from '@/components/ideas/swipeable-idea-card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+
+// Mock data for ideas
+const mockIdeas = [
+  {
+    id: '1',
+    title: 'AI-Powered Recipe Recommender',
+    description: 'An app that uses AI to recommend recipes based on ingredients you already have at home, dietary restrictions, and personal preferences.',
+    createdAt: new Date('2025-05-20'),
+    author: 'Anonymous',
+    rating: 4.5,
+    reviewCount: 28,
+    tags: [{ name: 'Innovative' }, { name: 'Practical' }, { name: 'Market-Ready' }],
+    aiSummary: 'Strong concept with clear value proposition. Consider adding meal planning features and grocery list integration to enhance user experience.'
+  },
+  {
+    id: '2',
+    title: 'Remote Team Building Platform',
+    description: 'A platform designed to foster team bonding and collaboration for remote teams through interactive games, challenges, and virtual events.',
+    createdAt: new Date('2025-05-18'),
+    author: 'Anonymous',
+    rating: 4.2,
+    reviewCount: 15,
+    tags: [{ name: 'Timely' }, { name: 'Scalable' }, { name: 'B2B' }],
+    aiSummary: 'Addresses a growing need in the remote work era. Focus on creating unique activities that cannot be easily replicated on existing platforms.'
+  },
+  {
+    id: '3',
+    title: 'Sustainable Fashion Marketplace',
+    description: 'An online marketplace connecting eco-conscious consumers with sustainable fashion brands and second-hand clothing sellers.',
+    createdAt: new Date('2025-05-15'),
+    author: 'Anonymous',
+    rating: 4.8,
+    reviewCount: 32,
+    tags: [{ name: 'Eco-Friendly' }, { name: 'Marketplace' }, { name: 'Trending' }],
+    aiSummary: 'Excellent timing with growing consumer interest in sustainability. Consider adding authentication features for verifying sustainability claims.'
+  },
+  {
+    id: '4',
+    title: 'Personal Finance Education App',
+    description: 'An interactive app that teaches financial literacy through gamification, personalized lessons, and real-world simulations.',
+    createdAt: new Date('2025-05-10'),
+    author: 'Anonymous',
+    rating: 3.9,
+    reviewCount: 21,
+    tags: [{ name: 'Educational' }, { name: 'Fintech' }, { name: 'Gamified' }],
+    aiSummary: 'Strong educational value. Consider partnerships with financial institutions to provide real account integration for practical application.'
+  },
+  {
+    id: '5',
+    title: 'Neighborhood Skill Exchange',
+    description: 'A platform that allows neighbors to exchange skills and services without monetary payment, building community and reducing consumption.',
+    createdAt: new Date('2025-05-05'),
+    author: 'Anonymous',
+    rating: 4.1,
+    reviewCount: 18,
+    tags: [{ name: 'Community' }, { name: 'Sharing Economy' }, { name: 'Social Impact' }],
+    aiSummary: 'Novel approach to community building. Focus on trust and safety features to encourage participation.'
+  },
+  {
+    id: '6',
+    title: 'Mental Health Check-in App',
+    description: 'An app that provides daily mental health check-ins, personalized coping strategies, and anonymous peer support for users.',
+    createdAt: new Date('2025-05-01'),
+    author: 'Anonymous',
+    rating: 4.7,
+    reviewCount: 42,
+    tags: [{ name: 'Health' }, { name: 'Wellness' }, { name: 'Social Good' }],
+    aiSummary: 'Addresses a critical need with a thoughtful approach. Consider adding professional support options for users in crisis.'
+  }
+];
+
+// Available categories for filtering
+const categories = ['All', 'Tech', 'Health', 'Education', 'Finance', 'Social', 'Environment'];
+
+export default function IdeasPage() {
+  const { data: session, status } = useSession();
+  const [activeTab, setActiveTab] = useState("explore");
+  const [ideas, setIdeas] = useState(mockIdeas);
+  const [filteredIdeas, setFilteredIdeas] = useState(mockIdeas);
+  const [currentIdeaIndex, setCurrentIdeaIndex] = useState(0);
+  const [selectedFilters, setSelectedFilters] = useState({
+    categories: ["All"],
+    ratings: [],
+    date: "newest"
+  });
+  const [feedbackDialog, setFeedbackDialog] = useState({
+    open: false,
+    ideaId: '',
+    rating: 0,
+    comment: '',
+    tags: []
+  });
+  const [pointsEarned, setPointsEarned] = useState(0);
+  const [showPointsAnimation, setShowPointsAnimation] = useState(false);
+
+  // Fetch ideas from API
+  useEffect(() => {
+    const fetchIdeas = async () => {
+      try {
+        const response = await fetch('/api/ideas');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.ideas && data.ideas.length > 0) {
+            setIdeas(data.ideas);
+            setFilteredIdeas(data.ideas);
+          } else {
+            // Fallback to mock data if no ideas are returned
+            setIdeas(mockIdeas);
+            setFilteredIdeas(mockIdeas);
+          }
+        } else {
+          // Fallback to mock data if API call fails
+          setIdeas(mockIdeas);
+          setFilteredIdeas(mockIdeas);
+        }
+      } catch (error) {
+        console.error('Error fetching ideas:', error);
+        // Fallback to mock data if API call fails
+        setIdeas(mockIdeas);
+        setFilteredIdeas(mockIdeas);
+      }
+    };
+
+    fetchIdeas();
+  }, []);
+
+  // Apply filters
+  const applyFilters = () => {
+    let filtered = [...ideas];
+    
+    // Filter by category
+    if (selectedFilters.categories.length > 0 && !selectedFilters.categories.includes("All")) {
+      // In a real app, we would filter by category
+      // For now, we'll just return all ideas
+    }
+    
+    // Filter by rating
+    if (selectedFilters.ratings.length > 0) {
+      filtered = filtered.filter(idea => 
+        selectedFilters.ratings.some(r => Math.floor(idea.rating) >= r)
+      );
+    }
+    
+    // Sort by date
+    if (selectedFilters.date === "newest") {
+      filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    } else if (selectedFilters.date === "oldest") {
+      filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    }
+    
+    setFilteredIdeas(filtered);
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (type: string, value: string | number) => {
+    setSelectedFilters(prev => {
+      const newFilters = { ...prev };
+      
+      if (type === "category") {
+        if (value === "All") {
+          newFilters.categories = ["All"];
+        } else {
+          if (newFilters.categories.includes("All")) {
+            newFilters.categories = [value as string];
+          } else {
+            if (newFilters.categories.includes(value as string)) {
+              newFilters.categories = newFilters.categories.filter(c => c !== value);
+              if (newFilters.categories.length === 0) {
+                newFilters.categories = ["All"];
+              }
+            } else {
+              newFilters.categories = [...newFilters.categories, value as string];
+            }
+          }
+        }
+      } else if (type === "rating") {
+        if (newFilters.ratings.includes(value as number)) {
+          newFilters.ratings = newFilters.ratings.filter(r => r !== value);
+        } else {
+          newFilters.ratings = [...newFilters.ratings, value as number];
+        }
+      } else if (type === "date") {
+        newFilters.date = value as string;
+      }
+      
+      return newFilters;
+    });
+  };
+
+  // Handle swipe
+  const handleSwipe = (direction: 'left' | 'right', id: string) => {
+    console.log(`Swiped ${direction} on idea ${id}`);
+    
+    // Award points for providing feedback
+    if (direction === 'right') {
+      // Like - award more points
+      awardPoints(10);
+    } else {
+      // Dislike - award fewer points
+      awardPoints(5);
+    }
+    
+    // Move to next idea
+    if (currentIdeaIndex < filteredIdeas.length - 1) {
+      setCurrentIdeaIndex(currentIdeaIndex + 1);
+    } else {
+      // No more ideas to review
+      setCurrentIdeaIndex(0);
+    }
+  };
+
+  // Handle rating
+  const handleRate = (id: string, rating: number) => {
+    console.log(`Rated idea ${id} with ${rating} stars`);
+    
+    // Update feedback dialog
+    setFeedbackDialog(prev => ({
+      ...prev,
+      rating
+    }));
+  };
+
+  // Handle add feedback
+  const handleAddFeedback = (id: string) => {
+    setFeedbackDialog({
+      open: true,
+      ideaId: id,
+      rating: 0,
+      comment: '',
+      tags: []
+    });
+  };
+
+  // Submit feedback
+  const submitFeedback = async () => {
+    try {
+      // Submit detailed feedback to API
+      const response = await fetch('/api/ideas/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideaId: feedbackDialog.ideaId,
+          rating: feedbackDialog.rating,
+          comment: feedbackDialog.comment,
+          tags: feedbackDialog.tags,
+          action: 'detailed',
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Award points based on API response
+        awardPoints(data.pointsAwarded || 20);
+      } else {
+        // Fallback to default points if API call fails
+        awardPoints(20);
+      }
+      
+      // Close dialog
+      setFeedbackDialog(prev => ({
+        ...prev,
+        open: false
+      }));
+      
+      // Move to next idea
+      if (currentIdeaIndex < filteredIdeas.length - 1) {
+        setCurrentIdeaIndex(currentIdeaIndex + 1);
+      } else {
+        // No more ideas to review
+        setCurrentIdeaIndex(0);
+      }
+    } catch (error) {
+      console.error('Error submitting detailed feedback:', error);
+      // Fallback to default points if API call fails
+      awardPoints(20);
+      
+      // Close dialog
+      setFeedbackDialog(prev => ({
+        ...prev,
+        open: false
+      }));
+    }
+  };
+
+  // Award points to user
+  const awardPoints = (points: number) => {
+    setPointsEarned(points);
+    setShowPointsAnimation(true);
+    
+    // Hide animation after 2 seconds
+    setTimeout(() => {
+      setShowPointsAnimation(false);
+    }, 2000);
+    
+    // In a real app, we would update the user's points in the database
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      
+      {/* Points animation */}
+      <AnimatePresence>
+        {showPointsAnimation && (
+          <motion.div 
+            className="fixed top-20 right-4 bg-gradient-to-r from-primary to-secondary text-white px-4 py-2 rounded-lg shadow-lg z-50"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+              </svg>
+              <span className="font-bold">+{pointsEarned} points earned!</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <main className="flex-1 py-12">
+        <div className="container">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Explore Ideas</h1>
+              <p className="text-muted-foreground">Discover and provide feedback on innovative startup and app ideas</p>
+            </div>
+            <Button className="bg-gradient-to-r from-primary to-secondary text-white" asChild>
+              <Link href="/ideas/submit">Submit Your Idea</Link>
+            </Button>
+          </div>
+
+          <Tabs defaultValue="explore" value={activeTab} onValueChange={setActiveTab} className="mb-8">
+            <TabsList className="grid w-full md:w-auto grid-cols-2">
+              <TabsTrigger value="explore">Explore Ideas</TabsTrigger>
+              <TabsTrigger value="review">Review Ideas</TabsTrigger>
+            </TabsList>
+            
+            {/* Explore Tab */}
+            <TabsContent value="explore" className="mt-6">
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="w-full md:w-64 flex-shrink-0">
+                  <div className="bg-card rounded-xl border p-4 sticky top-20">
+                    <h3 className="font-medium mb-3">Filter Ideas</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Categories</label>
+                        <div className="space-y-2">
+                          {categories.map((category) => (
+                            <div key={category} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`category-${category}`}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={selectedFilters.categories.includes(category)}
+                                onChange={() => handleFilterChange("category", category)}
+                              />
+                              <label htmlFor={`category-${category}`} className="ml-2 text-sm">
+                                {category}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Rating</label>
+                        <div className="space-y-2">
+                          {[5, 4, 3, 2, 1].map((rating) => (
+                            <div key={rating} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`rating-${rating}`}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={selectedFilters.ratings.includes(rating)}
+                                onChange={() => handleFilterChange("rating", rating)}
+                              />
+                              <label htmlFor={`rating-${rating}`} className="ml-2 text-sm flex items-center">
+                                {Array.from({ length: rating }).map((_, i) => (
+                                  <svg
+                                    key={i}
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                    className="text-yellow-500"
+                                  >
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                  </svg>
+                                ))}
+                                <span className="ml-1">& up</span>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">Date</label>
+                        <select 
+                          className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                          value={selectedFilters.date}
+                          onChange={(e) => handleFilterChange("date", e.target.value)}
+                        >
+                          <option value="newest">Newest first</option>
+                          <option value="oldest">Oldest first</option>
+                        </select>
+                      </div>
+                      <Button variant="default" size="sm" className="w-full" onClick={applyFilters}>
+                        Apply Filters
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-grow">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredIdeas.map((idea) => (
+                      <IdeaCard key={idea.id} {...idea} />
+                    ))}
+                  </div>
+                  <div className="flex justify-center mt-8">
+                    <Button variant="outline">Load More Ideas</Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+            
+            {/* Review Tab (Tinder-like) */}
+            <TabsContent value="review" className="mt-6">
+              <div className="flex flex-col items-center">
+                <div className="w-full max-w-md mb-8">
+                  <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-0 shadow-md">
+                    <CardContent className="p-6">
+                      <div className="text-center mb-4">
+                        <h2 className="text-xl font-bold">Community Review</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Swipe right to like ideas, swipe left to pass. 
+                          Earn points for every review you provide!
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                        <div>
+                          <span className="font-medium">{currentIdeaIndex + 1}</span> of <span>{filteredIdeas.length}</span> ideas
+                        </div>
+                        <div>
+                          <span className="font-medium">Earn points:</span> 5-20 per review
+                        </div>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div className="w-full h-2 bg-gray-200 rounded-full mb-6">
+                        <div 
+                          className="h-2 bg-gradient-to-r from-primary to-secondary rounded-full"
+                          style={{ width: `${((currentIdeaIndex + 1) / filteredIdeas.length) * 100}%` }}
+                        ></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {filteredIdeas.length > 0 ? (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={filteredIdeas[currentIdeaIndex].id}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <SwipeableIdeaCard
+                        {...filteredIdeas[currentIdeaIndex]}
+                        onSwipe={handleSwipe}
+                        onRate={handleRate}
+                        onAddFeedback={handleAddFeedback}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                ) : (
+                  <div className="p-8 text-center bg-white rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold mb-2">No Ideas to Review</h3>
+                    <p className="text-muted-foreground mb-4">
+                      There are currently no ideas available for review. Check back later or submit your own idea!
+                    </p>
+                    <Button className="bg-gradient-to-r from-primary to-secondary text-white" asChild>
+                      <Link href="/ideas/submit">Submit Your Idea</Link>
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Instructions */}
+                <div className="mt-8 text-center max-w-md">
+                  <h3 className="text-lg font-medium mb-2">How it works</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-4 rounded-lg bg-white shadow">
+                      <div className="flex justify-center mb-2">
+                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="font-medium">Swipe Left</p>
+                      <p className="text-muted-foreground">Pass on ideas that don't interest you</p>
+                      <p className="text-xs mt-1">Earn 5 points</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-white shadow">
+                      <div className="flex justify-center mb-2">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="font-medium">Swipe Right</p>
+                      <p className="text-muted-foreground">Like ideas that impress you</p>
+                      <p className="text-xs mt-1">Earn 10 points</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-4 rounded-lg bg-white shadow">
+                    <div className="flex justify-center mb-2">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="font-medium">Leave Detailed Feedback</p>
+                    <p className="text-muted-foreground">Add ratings, tags, and comments</p>
+                    <p className="text-xs mt-1">Earn 20 points</p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+      
+      {/* Feedback Dialog */}
+      <Dialog open={feedbackDialog.open} onOpenChange={(open) => setFeedbackDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Submit Detailed Feedback</DialogTitle>
+            <DialogDescription>
+              Your feedback helps creators improve their ideas and earn you more points.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Your Comment</label>
+              <Textarea 
+                placeholder="What do you think about this idea? What works well? What could be improved?"
+                value={feedbackDialog.comment}
+                onChange={(e) => setFeedbackDialog(prev => ({ ...prev, comment: e.target.value }))}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFeedbackDialog(prev => ({ ...prev, open: false }))}>
+              Cancel
+            </Button>
+            <Button onClick={submitFeedback}>
+              Submit Feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Footer />
+    </div>
+  );
+}
