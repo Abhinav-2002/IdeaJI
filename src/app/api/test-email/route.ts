@@ -26,9 +26,20 @@ export async function GET(req: Request) {
       password: process.env.SMTP_PASSWORD ? 'Configured' : 'Not Configured',
       appUrl: process.env.NEXT_PUBLIC_APP_URL || 'Not Configured'
     });
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+      console.error('SMTP credentials not configured');
+      return NextResponse.json(
+        { 
+          error: "SMTP credentials not configured",
+          details: "Please check your .env.local file and make sure SMTP_USER and SMTP_PASSWORD are set"
+        },
+        { status: 500 }
+      );
+    }
     
     // Send test email
-    await sendEmail({
+    const result = await sendEmail({
       to: email,
       subject: "Ideaji Email Test",
       html: `
@@ -44,8 +55,13 @@ export async function GET(req: Request) {
       `,
     });
     
+    console.log('Email send result:', result);
+    
     return NextResponse.json(
-      { message: "Test email sent successfully" },
+      { 
+        message: "Test email sent successfully",
+        details: result
+      },
       { status: 200 }
     );
   } catch (error) {
@@ -66,6 +82,47 @@ export async function GET(req: Request) {
           passwordConfigured: !!process.env.SMTP_PASSWORD,
           appUrl: process.env.NEXT_PUBLIC_APP_URL || 'Not Configured'
         }
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { email } = body;
+
+    if (!email) {
+      return NextResponse.json(
+        { error: "Email is required" },
+        { status: 400 }
+      );
+    }
+
+    // Send test email
+    await sendEmail({
+      to: email,
+      subject: "Test Email from Ideaji",
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>Test Email</h1>
+          <p>This is a test email to verify your email configuration.</p>
+          <p>If you received this email, your email configuration is working correctly!</p>
+        </div>
+      `,
+    });
+
+    return NextResponse.json(
+      { message: "Test email sent successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Test email error:", error);
+    return NextResponse.json(
+      { 
+        error: "Failed to send test email",
+        details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }
     );

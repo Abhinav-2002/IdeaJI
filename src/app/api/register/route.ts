@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { z } from "zod";
-import { sendEmail, generateVerificationEmailHtml } from "@/lib/email";
 
 // Define validation schema
 const userSchema = z.object({
@@ -53,39 +52,11 @@ export async function POST(req: Request) {
         name,
         email,
         password: hashedPassword,
+        emailVerified: new Date(), // Set email as verified by default
       },
     });
 
     console.log('User created successfully:', { userId: user.id, email: user.email });
-
-    // Create verification token
-    console.log('Creating verification token');
-    const token = await prisma.verificationToken.create({
-      data: {
-        identifier: email,
-        token: Math.random().toString(36).substring(2, 15),
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      },
-    });
-
-    console.log('Verification token created:', { 
-      token: token.token,
-      expires: token.expires 
-    });
-
-    // Send verification email
-    console.log('Attempting to send verification email');
-    try {
-      await sendEmail({
-        to: email,
-        subject: "Verify your email address",
-        html: generateVerificationEmailHtml(token.token),
-      });
-      console.log('Verification email sent successfully');
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Continue with registration even if email fails
-    }
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;

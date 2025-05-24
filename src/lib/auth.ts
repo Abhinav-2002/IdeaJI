@@ -74,11 +74,6 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Check if email is verified
-        if (!user.emailVerified) {
-          throw new Error("EmailNotVerified");
-        }
-
         return {
           id: user.id,
           email: user.email,
@@ -124,31 +119,6 @@ export const authOptions: NextAuthOptions = {
         role: dbUser.role,
         emailVerified: dbUser.emailVerified,
       };
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      // Send verification email when a new user is created
-      if (user.email) {
-        try {
-          const token = await prisma.verificationToken.create({
-            data: {
-              identifier: user.email,
-              token: Math.random().toString(36).substring(2, 15),
-              expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-            },
-          });
-
-          // Send verification email
-          await sendEmail({
-            to: user.email,
-            subject: "Verify your email address",
-            html: generateVerificationEmailHtml(token.token),
-          });
-        } catch (error) {
-          console.error("Error sending verification email:", error);
-        }
-      }
     },
   },
 };

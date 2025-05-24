@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 
 // Define form validation schema
 const loginSchema = z.object({
@@ -28,6 +28,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationAlert, setShowVerificationAlert] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -50,6 +52,7 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setError(null);
+      setUnverifiedEmail(null);
 
       const result = await signIn("credentials", {
         email: data.email,
@@ -61,6 +64,7 @@ export default function LoginPage() {
       if (result?.error) {
         if (result.error === "EmailNotVerified") {
           setError("Please verify your email before logging in. Check your inbox for the verification link.");
+          setUnverifiedEmail(data.email);
         } else {
           setError("Invalid email or password");
         }
@@ -90,6 +94,34 @@ export default function LoginPage() {
       console.error("Google sign-in error:", error);
       setError("An error occurred during Google sign-in");
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!unverifiedEmail) return;
+    
+    try {
+      setResendStatus('loading');
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResendStatus('success');
+        setError("Verification email sent! Please check your inbox.");
+      } else {
+        setResendStatus('error');
+        setError(data.error || "Failed to resend verification email");
+      }
+    } catch (error) {
+      setResendStatus('error');
+      setError("An error occurred while resending verification email");
     }
   };
 
@@ -164,8 +196,34 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm text-red-800">{error}</p>
+                  <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-600 text-sm">
+                    {error}
+                    {unverifiedEmail && (
+                      <div className="mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResendVerification}
+                          disabled={resendStatus === 'loading'}
+                          className="w-full"
+                        >
+                          {resendStatus === 'loading' ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Resending...
+                            </>
+                          ) : resendStatus === 'success' ? (
+                            <>
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              Email Sent!
+                            </>
+                          ) : (
+                            'Resend Verification Email'
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
